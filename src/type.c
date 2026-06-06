@@ -612,11 +612,11 @@ resect_type resect_type_create(resect_visit_context visit_context, resect_transl
     resect_bool is_const = false;
     // Not sure this can be true more than once -- but just in case, we loop
     while (clang_type.kind == CXType_Elaborated) {
-	if (clang_isConstQualifiedType(clang_type)) {
-	    is_const = true;
-	}
-	// Can unwrap to an Unexposed
-	clang_type = clang_Type_getNamedType(clang_type);
+        if (clang_isConstQualifiedType(clang_type)) {
+            is_const = true;
+        }
+        // Can unwrap to an Unexposed
+        clang_type = clang_Type_getNamedType(clang_type);
     }
     switch (clang_type.kind) {
         case CXType_Unexposed: {
