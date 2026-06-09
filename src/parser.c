@@ -310,6 +310,7 @@ resect_translation_unit resect_parse(const char *filename, resect_parse_options 
     CXCursor cursor = clang_getTranslationUnitCursor(clangUnit);
 
 
+    fprintf(stderr, "Shaking...\n");
     resect_shaking_context shaking_context = resect_shaking_context_create(options);
     resect_visit_context shake_visit_context = resect_visit_context_create(resect_decl_shake);
     resect_visit_cursor_children(shake_visit_context, cursor, shaking_context);
@@ -322,6 +323,7 @@ resect_translation_unit resect_parse(const char *filename, resect_parse_options 
     resect_translation_context translation_context = resect_context_create(options, inclusion_registry);
     resect_context_init_printing_policy(translation_context, cursor);
 
+    fprintf(stderr, "Parsing...\n");
     resect_visit_context parse_visit_context =
             resect_visit_context_create(resect_decl_parse);
     resect_decl_visit_data decl_visit_data =

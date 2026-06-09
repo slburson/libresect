@@ -189,12 +189,18 @@ struct P_resect_decl {
     resect_data_deallocator data_deallocator;
 };
 
-resect_decl_kind convert_cursor_kind(CXCursor cursor) {
+enum CXCursorKind get_cursor_kind(CXCursor cursor) {
     enum CXCursorKind clang_kind = clang_getTemplateCursorKind(cursor);
 
     if (clang_kind == CXCursor_NoDeclFound) {
         clang_kind = clang_getCursorKind(cursor);
     }
+
+    return clang_kind;
+}
+
+resect_decl_kind convert_cursor_kind(CXCursor cursor) {
+    enum CXCursorKind clang_kind = get_cursor_kind(cursor);
 
     switch (clang_kind) {
         case CXCursor_MacroDefinition:
@@ -574,16 +580,25 @@ void resect_decl__create(resect_visit_context visit_context, resect_translation_
     result->kind = convert_cursor_kind(cursor);
 
     resect_string decl_id = resect_extract_decl_id(cursor);
+    resect_bool log = (strstr(resect_string_to_c(decl_id), "macro") == NULL);
+    if (log)
+        fprintf(stderr, "resect_decl__create: %s", resect_string_to_c(decl_id));
 
     if (!resect_is_decl_included(context, decl_id)) {
+        if (log)
+            fprintf(stderr, " ... excluded\n");
         goto done;
     }
 
     resect_decl registered_decl = resect_find_decl(context, decl_id);
     if (registered_decl != NULL) {
+        if (log)
+            fprintf(stderr, " ... found %s\n", resect_string_to_c(registered_decl->name));
         result->decl = registered_decl;
         goto done;
     }
+    if (log)
+        fprintf(stderr, " ... new\n");
 
     resect_decl decl = malloc(sizeof(struct P_resect_decl));
     memset(decl, 0, sizeof(struct P_resect_decl));
@@ -766,6 +781,7 @@ typedef struct P_resect_record_data {
     resect_collection methods;
     resect_collection parents;
     resect_bool abstract;
+    resect_bool has_inherited_constructor;
 } *resect_record_data;
 
 resect_bool resect_is_struct(resect_decl decl) {
@@ -789,6 +805,12 @@ resect_bool resect_record_is_abstract(resect_decl decl) {
     assert(resect_is_struct(decl));
     resect_record_data data = decl->data;
     return data->abstract;
+}
+
+resect_bool resect_record_has_inherited_constructor(resect_decl decl) {
+    assert(resect_is_struct(decl));
+    resect_record_data data = decl->data;
+    return data->has_inherited_constructor;
 }
 
 resect_collection resect_record_parents(resect_decl decl) {
@@ -835,6 +857,8 @@ void resect_field_init(resect_visit_context visit_context, resect_translation_co
     decl->data = data;
 }
 
+void resect_create_record_child(resect_decl_child_visit_data visit_data, CXCursor cursor);
+
 enum CXChildVisitResult resect_visit_record_child(CXCursor cursor, CXCursor parent, CXClientData data) {
     resect_decl_child_visit_data visit_data = data;
 
@@ -851,11 +875,38 @@ enum CXChildVisitResult resect_visit_record_child(CXCursor cursor, CXCursor pare
         return CXChildVisit_Continue;
     }
 
+    if (clang_getCursorKind(cursor) == CXCursor_UsingDeclaration) {
+        CXCursor definition = clang_getCursorDefinition(cursor);
+        fprintf(stderr, "def: %d\n", clang_getCursorKind(definition));
+        // There's always more than one constructor; the copy and move constructors
+        // exist even if they're marked `= delete'.
+        int overload_count = clang_getNumOverloadedDecls(definition);
+        for (int i = 0; i < overload_count; ++i) {
+            CXCursor overload = clang_getOverloadedDecl(definition, i);
+            if (clang_getCursorKind(overload) == CXCursor_Constructor) {
+                resect_string decl_id = resect_extract_decl_id(overload);
+                fprintf(stderr, "ctor %s\n", resect_string_to_c(decl_id));
+                resect_string_free(decl_id);
+                resect_create_record_child(visit_data, overload);
+            }
+        }
+    } else {
+        resect_create_record_child(visit_data, cursor);
+    }
+
+    return CXChildVisit_Continue;
+}
+
+void resect_create_record_child(resect_decl_child_visit_data visit_data, CXCursor cursor) {
+    resect_record_data record_data = visit_data->parent->data;
+
+    fprintf(stderr, "about to create child\n");
     resect_decl_result decl_result =
             resect_decl_create(visit_data->visit_context, visit_data->translation_context, cursor);
 
     if (decl_result.decl != NULL) {
         resect_decl decl = decl_result.decl;
+        fprintf(stderr, "record child %s\n", resect_string_to_c(decl->name));
         switch (decl->kind) {
             case RESECT_DECL_KIND_METHOD:
                 resect_collection_add(record_data->methods, decl);
@@ -868,9 +919,9 @@ enum CXChildVisitResult resect_visit_record_child(CXCursor cursor, CXCursor pare
                 break;
             default:;
         }
+    } else {
+        fprintf(stderr, "no record child\n");
     }
-
-    return CXChildVisit_Continue;
 }
 
 void resect_record_data_free(void *data, resect_set deallocated) {
@@ -893,13 +944,16 @@ void resect_record_init(resect_visit_context visit_context, resect_translation_c
     data->fields = resect_collection_create();
     data->parents = resect_collection_create();
     data->abstract = convert_bool_from_uint(clang_CXXRecord_isAbstract(cursor));
+    data->has_inherited_constructor = resect_false;
 
     decl->data_deallocator = resect_record_data_free;
     decl->data = data;
 
     struct P_resect_decl_child_visit_data visit_data = {
             .visit_context = visit_context, .translation_context = context, .parent = decl};
+    fprintf(stderr, "record_init: %s\n", resect_string_to_c(decl->name));
     clang_visitChildren(cursor, resect_visit_record_child, &visit_data);
+    fprintf(stderr, "record_init done: %s\n", resect_string_to_c(decl->name));
 }
 
 /*
@@ -1389,6 +1443,7 @@ typedef struct P_resect_method_data {
     resect_bool virtual;
     resect_bool non_mutating;
     resect_bool deleted;
+    resect_bool constructor;
 } *resect_method_data;
 
 resect_type resect_method_get_result_type(resect_decl decl) {
@@ -1433,6 +1488,12 @@ resect_bool resect_method_is_deleted(resect_decl decl) {
     return data->deleted;
 }
 
+resect_bool resect_method_is_constructor(resect_decl decl) {
+    assert(decl->kind == RESECT_DECL_KIND_METHOD);
+    resect_method_data data = decl->data;
+    return data->constructor;
+}
+
 resect_collection resect_method_parameters(resect_decl decl) {
     assert(decl->kind == RESECT_DECL_KIND_METHOD);
     resect_method_data data = decl->data;
@@ -1473,6 +1534,7 @@ void resect_method_init(resect_visit_context visit_context, resect_translation_c
     data->pure_virtual = clang_CXXMethod_isPureVirtual(cursor) > 0;
     data->non_mutating = clang_CXXMethod_isConst(cursor) > 0;
     data->deleted = clang_CXXMethod_isDeleted(cursor) > 0;
+    data->constructor = get_cursor_kind(cursor) == CXCursor_Constructor;
 
     decl->data_deallocator = resect_method_data_free;
     decl->data = data;

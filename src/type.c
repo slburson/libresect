@@ -93,10 +93,13 @@ resect_type_method resect_method_create(resect_visit_context visit_context, rese
                                         CXCursor cursor) {
     resect_type_method method = NULL;
     resect_string method_id = resect_string_from_clang(clang_getCursorUSR(cursor));
+    fprintf(stderr, "resect_method_create: %s", resect_string_to_c(method_id));
     if (!resect_is_decl_included(context, method_id)) {
+        fprintf(stderr, " ... excluded\n");
         goto done;
     }
 
+    fprintf(stderr, " ... creating\n");
     method = malloc(sizeof(struct P_resect_type_method));
     method->id = resect_string_copy(method_id);
     method->name = resect_string_from_clang(clang_getCursorSpelling(cursor));
@@ -209,6 +212,10 @@ resect_bool resect_type_method_is_static(resect_type_method method) {
 
 resect_bool resect_type_method_is_const(resect_type_method method) {
     return method->is_const;
+}
+
+resect_bool resect_type_method_constructor_kind(resect_type_method method) {
+    return method->constructor_kind;
 }
 
 resect_type resect_type_method_get_proto(resect_type_method method) {
@@ -612,11 +619,11 @@ resect_type resect_type_create(resect_visit_context visit_context, resect_transl
     resect_bool is_const = false;
     // Not sure this can be true more than once -- but just in case, we loop
     while (clang_type.kind == CXType_Elaborated) {
-	if (clang_isConstQualifiedType(clang_type)) {
-	    is_const = true;
-	}
-	// Can unwrap to an Unexposed
-	clang_type = clang_Type_getNamedType(clang_type);
+        if (clang_isConstQualifiedType(clang_type)) {
+            is_const = true;
+        }
+        // Can unwrap to an Unexposed
+        clang_type = clang_Type_getNamedType(clang_type);
     }
     switch (clang_type.kind) {
         case CXType_Unexposed: {
