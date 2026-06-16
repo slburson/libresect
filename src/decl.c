@@ -189,12 +189,18 @@ struct P_resect_decl {
     resect_data_deallocator data_deallocator;
 };
 
-resect_decl_kind convert_cursor_kind(CXCursor cursor) {
+enum CXCursorKind get_cursor_kind(CXCursor cursor) {
     enum CXCursorKind clang_kind = clang_getTemplateCursorKind(cursor);
 
     if (clang_kind == CXCursor_NoDeclFound) {
         clang_kind = clang_getCursorKind(cursor);
     }
+
+    return clang_kind;
+}
+
+resect_decl_kind convert_cursor_kind(CXCursor cursor) {
+    enum CXCursorKind clang_kind = get_cursor_kind(cursor);
 
     switch (clang_kind) {
         case CXCursor_MacroDefinition:
@@ -1389,6 +1395,7 @@ typedef struct P_resect_method_data {
     resect_bool virtual;
     resect_bool non_mutating;
     resect_bool deleted;
+    resect_bool constructor;
 } *resect_method_data;
 
 resect_type resect_method_get_result_type(resect_decl decl) {
@@ -1433,6 +1440,12 @@ resect_bool resect_method_is_deleted(resect_decl decl) {
     return data->deleted;
 }
 
+resect_bool resect_method_is_constructor(resect_decl decl) {
+    assert(decl->kind == RESECT_DECL_KIND_METHOD);
+    resect_method_data data = decl->data;
+    return data->constructor;
+}
+
 resect_collection resect_method_parameters(resect_decl decl) {
     assert(decl->kind == RESECT_DECL_KIND_METHOD);
     resect_method_data data = decl->data;
@@ -1473,6 +1486,7 @@ void resect_method_init(resect_visit_context visit_context, resect_translation_c
     data->pure_virtual = clang_CXXMethod_isPureVirtual(cursor) > 0;
     data->non_mutating = clang_CXXMethod_isConst(cursor) > 0;
     data->deleted = clang_CXXMethod_isDeleted(cursor) > 0;
+    data->constructor = get_cursor_kind(cursor) == CXCursor_Constructor;
 
     decl->data_deallocator = resect_method_data_free;
     decl->data = data;

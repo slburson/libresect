@@ -502,6 +502,8 @@ RESECT_API resect_bool resect_method_is_const(resect_decl decl);
 
 RESECT_API resect_bool resect_method_is_deleted(resect_decl decl);
 
+RESECT_API resect_bool resect_method_is_constructor(resect_decl decl);
+
 /*
  * MACRO
  */
