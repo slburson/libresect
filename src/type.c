@@ -49,6 +49,7 @@ typedef struct P_resect_type_method {
     resect_decl decl;
     resect_bool is_static;
     resect_bool is_const;
+    resect_bool is_defaulted;
     resect_constructor_kind constructor_kind;
 } *resect_type_method;
 
@@ -110,6 +111,7 @@ resect_type_method resect_method_create(resect_visit_context visit_context, rese
         clang_getCursorPrettyPrinted(cursor, resect_context_get_printing_policy(context)));
     method->is_static = convert_bool_from_uint(clang_CXXMethod_isStatic(cursor));
     method->is_const = convert_bool_from_uint(clang_CXXMethod_isConst(cursor));
+    method->is_defaulted = convert_bool_from_uint(clang_CXXMethod_isDefaulted(cursor));
     method->constructor_kind = convert_constructor_kind(cursor);
 
 done:
@@ -212,6 +214,10 @@ resect_bool resect_type_method_is_static(resect_type_method method) {
 
 resect_bool resect_type_method_is_const(resect_type_method method) {
     return method->is_const;
+}
+
+resect_bool resect_type_method_is_defaulted(resect_type_method method) {
+    return method->is_defaulted;
 }
 
 resect_bool resect_type_method_constructor_kind(resect_type_method method) {
