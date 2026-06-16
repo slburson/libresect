@@ -420,7 +420,7 @@ void resect_visit_cursor_for_declaration(resect_visit_context context, CXCursor 
             CXCursor overload = clang_getOverloadedDecl(definition, i);
             if (clang_getCursorKind(overload) == CXCursor_Constructor) {
                 resect_string decl_id = resect_extract_decl_id(overload);
-                fprintf(stderr, "ctor %s\n", resect_string_to_c(decl_id));
+                // fprintf(stderr, "ctor %s\n", resect_string_to_c(decl_id));
                 resect_string_free(decl_id);
                 resect_visit_cursor_for_declaration(context, overload, data);
             }
