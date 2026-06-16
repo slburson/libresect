@@ -276,6 +276,8 @@ resect_bool resect_is_forward_declaration(CXCursor cursor);
 
 resect_bool resect_is_specialized(CXCursor cursor);
 
+enum CXCursorKind get_cursor_kind(CXCursor cursor);
+
 resect_decl_kind convert_cursor_kind(CXCursor cursor);
 
 bool is_cursor_anonymous(CXCursor cursor);
