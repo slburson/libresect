@@ -386,17 +386,6 @@ void resect_visit_cursor_for_declaration(resect_visit_context context, CXCursor 
 
     enum CXCursorKind cursor_kind = clang_getCursorKind(cursor);
 
-    /*
-    if (cursor_kind == CXCursor_OverloadedDeclRef) {
-        unsigned n_overloads = clang_getNumOverloadedDecls(cursor);
-        for (unsigned i = 0; i < n_overloads; ++i) {
-            CXCursor overload = clang_getOverloadedDecl(cursor, i);
-            fprintf(stderr, "overload %d\n", i);
-            resect_visit_cursor_for_declaration(context, overload, data);
-        }
-    }
-    */
-
     if (cursor_kind >= CXCursor_FirstInvalid // ignore invalid cursors
         && cursor_kind <= CXCursor_LastInvalid
         || cursor_kind >= CXCursor_FirstAttr // ignore attributes
@@ -413,15 +402,13 @@ void resect_visit_cursor_for_declaration(resect_visit_context context, CXCursor 
         return;
     }
 
+    // Enables walking `using' declarations to look for overloaded constructors
     if (cursor_kind == CXCursor_UsingDeclaration) {
         CXCursor definition = clang_getCursorDefinition(cursor);
         int overload_count = clang_getNumOverloadedDecls(definition);
         for (int i = 0; i < overload_count; ++i) {
             CXCursor overload = clang_getOverloadedDecl(definition, i);
             if (clang_getCursorKind(overload) == CXCursor_Constructor) {
-                resect_string decl_id = resect_extract_decl_id(overload);
-                // fprintf(stderr, "ctor %s\n", resect_string_to_c(decl_id));
-                resect_string_free(decl_id);
                 resect_visit_cursor_for_declaration(context, overload, data);
             }
         }

@@ -94,13 +94,10 @@ resect_type_method resect_method_create(resect_visit_context visit_context, rese
                                         CXCursor cursor) {
     resect_type_method method = NULL;
     resect_string method_id = resect_string_from_clang(clang_getCursorUSR(cursor));
-    // fprintf(stderr, "resect_method_create: %s", resect_string_to_c(method_id));
     if (!resect_is_decl_included(context, method_id)) {
-        // fprintf(stderr, " ... excluded\n");
         goto done;
     }
 
-    // fprintf(stderr, " ... creating\n");
     method = malloc(sizeof(struct P_resect_type_method));
     method->id = resect_string_copy(method_id);
     method->name = resect_string_from_clang(clang_getCursorSpelling(cursor));
@@ -112,7 +109,6 @@ resect_type_method resect_method_create(resect_visit_context visit_context, rese
     method->is_static = convert_bool_from_uint(clang_CXXMethod_isStatic(cursor));
     method->is_const = convert_bool_from_uint(clang_CXXMethod_isConst(cursor));
     method->is_defaulted = convert_bool_from_uint(clang_CXXMethod_isDefaulted(cursor));
-    // fprintf(stderr, "   defaulted: %d  %s\n", method->is_defaulted, resect_string_to_c(method->mangling));
     method->constructor_kind = convert_constructor_kind(cursor);
 
 done:

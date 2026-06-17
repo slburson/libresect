@@ -580,25 +580,16 @@ void resect_decl__create(resect_visit_context visit_context, resect_translation_
     result->kind = convert_cursor_kind(cursor);
 
     resect_string decl_id = resect_extract_decl_id(cursor);
-    resect_bool log = resect_false;  // (strstr(resect_string_to_c(decl_id), "macro") == NULL);
-    if (log)
-        fprintf(stderr, "resect_decl__create: %s", resect_string_to_c(decl_id));
 
     if (!resect_is_decl_included(context, decl_id)) {
-        if (log)
-            fprintf(stderr, " ... excluded\n");
         goto done;
     }
 
     resect_decl registered_decl = resect_find_decl(context, decl_id);
     if (registered_decl != NULL) {
-        if (log)
-            fprintf(stderr, " ... found %s\n", resect_string_to_c(registered_decl->name));
         result->decl = registered_decl;
         goto done;
     }
-    if (log)
-        fprintf(stderr, " ... new\n");
 
     resect_decl decl = malloc(sizeof(struct P_resect_decl));
     memset(decl, 0, sizeof(struct P_resect_decl));
@@ -877,7 +868,6 @@ enum CXChildVisitResult resect_visit_record_child(CXCursor cursor, CXCursor pare
 
     if (clang_getCursorKind(cursor) == CXCursor_UsingDeclaration) {
         CXCursor definition = clang_getCursorDefinition(cursor);
-        // fprintf(stderr, "def: %d\n", clang_getCursorKind(definition));
         // There's always more than one constructor; the copy and move constructors
         // exist even if they're marked `= delete'.
         int overload_count = clang_getNumOverloadedDecls(definition);
@@ -885,9 +875,6 @@ enum CXChildVisitResult resect_visit_record_child(CXCursor cursor, CXCursor pare
             CXCursor overload = clang_getOverloadedDecl(definition, i);
             if (clang_getCursorKind(overload) == CXCursor_Constructor) {
                 record_data->has_inherited_constructor = resect_true;
-                resect_string decl_id = resect_extract_decl_id(overload);
-                // fprintf(stderr, "ctor %s\n", resect_string_to_c(decl_id));
-                resect_string_free(decl_id);
                 resect_create_record_child(visit_data, overload);
             }
         }
@@ -901,13 +888,11 @@ enum CXChildVisitResult resect_visit_record_child(CXCursor cursor, CXCursor pare
 void resect_create_record_child(resect_decl_child_visit_data visit_data, CXCursor cursor) {
     resect_record_data record_data = visit_data->parent->data;
 
-    // fprintf(stderr, "about to create child\n");
     resect_decl_result decl_result =
             resect_decl_create(visit_data->visit_context, visit_data->translation_context, cursor);
 
     if (decl_result.decl != NULL) {
         resect_decl decl = decl_result.decl;
-        // fprintf(stderr, "record child %s\n", resect_string_to_c(decl->name));
         switch (decl->kind) {
             case RESECT_DECL_KIND_METHOD:
                 resect_collection_add(record_data->methods, decl);
@@ -920,8 +905,6 @@ void resect_create_record_child(resect_decl_child_visit_data visit_data, CXCurso
                 break;
             default:;
         }
-    } else {
-        // fprintf(stderr, "no record child\n");
     }
 }
 
@@ -952,9 +935,7 @@ void resect_record_init(resect_visit_context visit_context, resect_translation_c
 
     struct P_resect_decl_child_visit_data visit_data = {
             .visit_context = visit_context, .translation_context = context, .parent = decl};
-    // fprintf(stderr, "record_init: %s\n", resect_string_to_c(decl->name));
     clang_visitChildren(cursor, resect_visit_record_child, &visit_data);
-    // fprintf(stderr, "record_init done: %s\n", resect_string_to_c(decl->name));
 }
 
 /*
