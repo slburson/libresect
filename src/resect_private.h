@@ -290,6 +290,10 @@ void resect_visit_decl_data_free(resect_decl_visit_data data);
 
 resect_ref_qualifier convert_ref_qualifier(enum CXRefQualifierKind qual);
 
+resect_bool resect_method_is_copy_assignment(resect_decl decl);
+
+resect_bool resect_method_is_copy_constructor(resect_decl decl);
+
 /*
  * TEMPLATE ARGUMENT
  */

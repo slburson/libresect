@@ -31,6 +31,10 @@ struct P_resect_type {
     resect_bool const_qualified;
     resect_bool pod;
     resect_bool undeclared;
+    resect_bool has_copy_constructor;
+    resect_bool copy_constructor_deleted;
+    resect_bool has_copy_assignment;
+    resect_bool copy_assignment_deleted;
     resect_collection template_arguments;
 
     resect_decl decl;
@@ -316,6 +320,22 @@ static enum CXVisitorResult visit_type_method(CXCursor cursor, CXClientData data
     resect_type_method type_method = resect_method_create(visit_data->visit_context, visit_data->context, cursor);
     if (type_method != NULL) {
         resect_collection_add(visit_data->type->methods, type_method);
+        if (type_method->decl != NULL) {
+            if (resect_method_is_copy_constructor(type_method->decl)) {
+                if (resect_method_is_deleted(type_method->decl)) {
+                    visit_data->type->copy_constructor_deleted = resect_true;
+                } else {
+                    visit_data->type->has_copy_constructor = resect_true;
+                }
+            }
+            if (resect_method_is_copy_assignment(type_method->decl)) {
+                if (resect_method_is_deleted(type_method->decl)) {
+                    visit_data->type->copy_assignment_deleted = resect_true;
+                } else {
+                    visit_data->type->has_copy_assignment = resect_true;
+                }
+            }
+        }
     }
 
     return CXVisit_Continue;
@@ -622,11 +642,11 @@ resect_type resect_type_create(resect_visit_context visit_context, resect_transl
     resect_bool is_const = false;
     // Not sure this can be true more than once -- but just in case, we loop
     while (clang_type.kind == CXType_Elaborated) {
-	if (clang_isConstQualifiedType(clang_type)) {
-	    is_const = true;
-	}
-	// Can unwrap to an Unexposed
-	clang_type = clang_Type_getNamedType(clang_type);
+        if (clang_isConstQualifiedType(clang_type)) {
+            is_const = true;
+        }
+        // Can unwrap to an Unexposed
+        clang_type = clang_Type_getNamedType(clang_type);
     }
     switch (clang_type.kind) {
         case CXType_Unexposed: {
@@ -664,6 +684,10 @@ resect_type resect_type_create(resect_visit_context visit_context, resect_transl
     type->pod = convert_bool_from_uint(clang_isPODType(clang_type));
     type->template_arguments = resect_collection_create();
     type->decl = NULL;
+    type->has_copy_constructor = resect_false;
+    type->copy_constructor_deleted = resect_false;
+    type->has_copy_assignment = resect_false;
+    type->copy_assignment_deleted = resect_false;
 
     type->data_deallocator = NULL;
     type->data = NULL;
@@ -784,6 +808,14 @@ resect_bool resect_type_is_pod(resect_type type) { return type->pod; }
 resect_decl resect_type_get_declaration(resect_type type) { return type->decl; }
 
 resect_type_category resect_type_get_category(resect_type type) { return type->category; }
+
+resect_bool resect_type_has_copy_constructor(resect_type type) { return type->has_copy_constructor; }
+
+resect_bool resect_type_copy_constructor_deleted(resect_type type) { return type->copy_constructor_deleted; }
+
+resect_bool resect_type_has_copy_assignment(resect_type type) { return type->has_copy_assignment; }
+
+resect_bool resect_type_copy_assignment_deleted(resect_type type) { return type->copy_assignment_deleted; }
 
 resect_collection resect_type_template_arguments(resect_type type) { return type->template_arguments; }
 
