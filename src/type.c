@@ -22,8 +22,8 @@ struct P_resect_type_field {
 struct P_resect_type {
     resect_type_kind kind;
     resect_string name;
-    unsigned int size;
-    unsigned int alignment;
+    long long size;
+    long long alignment;
     resect_type_category category;
     resect_collection fields;
     resect_collection base_classes;
