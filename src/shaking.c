@@ -233,6 +233,18 @@ void resect_decl_shake(resect_visit_context visit_context, CXCursor cursor, void
     resect_investigate_decl(visit_context, shaking_context, cursor);
 }
 
+static bool resect_is_method_of_instantiated_template(CXCursor cursor) {
+    CXCursor parent = clang_getCursorSemanticParent(cursor);
+    if (clang_Cursor_isNull(parent)) {
+	return false;
+    }
+    enum CXCursorKind parent_kind = clang_getCursorKind(parent);
+    if (parent_kind != CXCursor_ClassDecl && parent_kind != CXCursor_StructDecl) {
+        return false;
+    }
+    return !clang_Cursor_isNull(clang_getSpecializedCursorTemplate(parent));
+}
+
 static resect_filter_status resect_cursor_filter_status(resect_filtering_context filtering, CXCursor cursor) {
     resect_string full_name = resect_format_cursor_full_name(cursor);
     resect_string source = resect_format_cursor_source(cursor);
@@ -240,15 +252,30 @@ static resect_filter_status resect_cursor_filter_status(resect_filtering_context
             resect_filtering_status(filtering, resect_string_to_c(full_name), resect_string_to_c(source));
 
     // Auto-exclude hidden classes and functions, which we can't link to.
-    resect_decl_kind decl_kind = convert_cursor_kind(cursor);
+    // There are a few exceptions.
     if (result == RESECT_FILTER_STATUS_INCLUDED) {
         switch (convert_cursor_kind(cursor)) {
+            case RESECT_DECL_KIND_METHOD:
+                // Don't exclude methods of template instantiations.
+                if (resect_is_method_of_instantiated_template(cursor)) {
+                    break;
+                }
+		// (fall through)
+            case RESECT_DECL_KIND_FUNCTION:
+		// Don't exclude inline functions and methods.
+		if (clang_Cursor_isFunctionInlined(cursor)) {
+		    break;
+		}
+		goto check_vis;     // (skip class template check)
             case RESECT_DECL_KIND_STRUCT:
             case RESECT_DECL_KIND_UNION:
             case RESECT_DECL_KIND_CLASS:
-            case RESECT_DECL_KIND_FUNCTION:
+		// Don't exclude class template instantiations.  (We need to see their methods.)
+		if (!clang_Cursor_isNull(clang_getSpecializedCursorTemplate(cursor))) {
+		    break;
+		}
             case RESECT_DECL_KIND_VARIABLE:
-            case RESECT_DECL_KIND_METHOD:
+	    check_vis:
                 enum CXVisibilityKind visibility = clang_getCursorVisibility(cursor);
                 if (visibility == CXVisibility_Hidden) {
                     if (resect_filtering_context_diagnostics_level(filtering) >= RESECT_DIAGNOSTICS_DEBUG) {
