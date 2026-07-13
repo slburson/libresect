@@ -275,7 +275,7 @@ static resect_filter_status resect_cursor_filter_status(resect_filtering_context
 		    break;
 		}
             case RESECT_DECL_KIND_VARIABLE:
-	    check_vis:
+            check_vis: {
                 enum CXVisibilityKind visibility = clang_getCursorVisibility(cursor);
                 if (visibility == CXVisibility_Hidden) {
                     if (resect_filtering_context_diagnostics_level(filtering) >= RESECT_DIAGNOSTICS_DEBUG) {
@@ -284,6 +284,7 @@ static resect_filter_status resect_cursor_filter_status(resect_filtering_context
                     }
                     result = RESECT_FILTER_STATUS_EXCLUDED;
                 }
+            }
             default: ;
         }
     }
