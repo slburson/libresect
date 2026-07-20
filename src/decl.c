@@ -984,6 +984,7 @@ typedef struct P_resect_function_data {
     resect_type result_type;
     resect_bool inlined;
     resect_bool deleted;
+    resect_bool noexcept;
     resect_ref_qualifier ref_qualifier;
 } *resect_function_data;
 
@@ -1015,6 +1016,12 @@ resect_bool resect_function_is_deleted(resect_decl decl) {
     assert(decl->kind == RESECT_DECL_KIND_FUNCTION);
     resect_function_data data = decl->data;
     return data->deleted;
+}
+
+resect_bool resect_function_is_noexcept(resect_decl decl) {
+    assert(decl->kind == RESECT_DECL_KIND_FUNCTION);
+    resect_function_data data = decl->data;
+    return data->noexcept;
 }
 
 resect_collection resect_function_parameters(resect_decl decl) {
@@ -1146,6 +1153,8 @@ resect_function_data resect_function_data_create(resect_visit_context visit_cont
     data->result_type = resect_type_create(visit_context, context, result_type);
     data->inlined = convert_bool_from_uint(clang_Cursor_isFunctionInlined(cursor));
     data->deleted = (clang_getCursorAvailability(cursor) == CXAvailability_NotAvailable);
+    int exc_kind = clang_getCursorExceptionSpecificationType(cursor);
+    data->noexcept = (exc_kind == CXCursor_ExceptionSpecificationKind_BasicNoexcept);
     data->ref_qualifier = convert_ref_qualifier(clang_Type_getCXXRefQualifier(functionType));
 
     return data;
@@ -1482,6 +1491,18 @@ resect_bool resect_method_is_deleted(resect_decl decl) {
     assert(decl->kind == RESECT_DECL_KIND_METHOD);
     resect_method_data data = decl->data;
     return data->deleted;
+}
+
+resect_bool resect_method_is_inlined(resect_decl decl) {
+    assert(decl->kind == RESECT_DECL_KIND_METHOD);
+    resect_method_data data = decl->data;
+    return data->function_data->inlined;
+}
+
+resect_bool resect_method_is_noexcept(resect_decl decl) {
+    assert(decl->kind == RESECT_DECL_KIND_METHOD);
+    resect_method_data data = decl->data;
+    return data->function_data->noexcept;
 }
 
 resect_bool resect_method_is_constructor(resect_decl decl) {
