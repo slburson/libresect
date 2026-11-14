@@ -236,7 +236,7 @@ void resect_decl_shake(resect_visit_context visit_context, CXCursor cursor, void
 static bool resect_is_method_of_instantiated_template(CXCursor cursor) {
     CXCursor parent = clang_getCursorSemanticParent(cursor);
     if (clang_Cursor_isNull(parent)) {
-	return false;
+        return false;
     }
     enum CXCursorKind parent_kind = clang_getCursorKind(parent);
     if (parent_kind != CXCursor_ClassDecl && parent_kind != CXCursor_StructDecl) {
@@ -260,20 +260,20 @@ static resect_filter_status resect_cursor_filter_status(resect_filtering_context
                 if (resect_is_method_of_instantiated_template(cursor)) {
                     break;
                 }
-		// (fall through)
+                // (fall through)
             case RESECT_DECL_KIND_FUNCTION:
-		// Don't exclude inline functions and methods.
-		if (clang_Cursor_isFunctionInlined(cursor)) {
-		    break;
-		}
-		goto check_vis;     // (skip class template check)
+                // Don't exclude inline functions and methods.
+                if (clang_Cursor_isFunctionInlined(cursor)) {
+                    break;
+                }
+                goto check_vis;     // (skip class template check)
             case RESECT_DECL_KIND_STRUCT:
             case RESECT_DECL_KIND_UNION:
             case RESECT_DECL_KIND_CLASS:
-		// Don't exclude class template instantiations.  (We need to see their methods.)
-		if (!clang_Cursor_isNull(clang_getSpecializedCursorTemplate(cursor))) {
-		    break;
-		}
+                // Don't exclude class template instantiations.  (We need to see their methods.)
+                if (!clang_Cursor_isNull(clang_getSpecializedCursorTemplate(cursor))) {
+                    break;
+                }
             case RESECT_DECL_KIND_VARIABLE:
             check_vis: {
                 enum CXVisibilityKind visibility = clang_getCursorVisibility(cursor);
@@ -349,6 +349,12 @@ void resect_investigate_decl(resect_visit_context visit_context, resect_shaking_
     bool node_existed = resect_decl_graph_has_node(shaking_context->decl_graph, decl_id);
     if (!node_existed) {
         resect_filter_status filter_status = resect_cursor_filter_status(shaking_context->filtering, cursor);
+
+        // Special handling for anonymous enums: we include them so we can see their constants.
+        if (decl_kind == RESECT_DECL_KIND_ENUM && clang_Cursor_isAnonymous(cursor)) {
+            filter_status = RESECT_FILTER_STATUS_INCLUDED;
+        }
+
         resect_decl_graph_add_node(shaking_context->decl_graph, decl_id, filter_status, access_level);
 
         resect_decl_graph_adopt(shaking_context->decl_graph, resect_shaking_context_root_id(shaking_context), decl_id);
